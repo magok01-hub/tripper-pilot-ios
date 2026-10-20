@@ -1,0 +1,44 @@
+name: Build unsigned IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build for iPhone without signing
+        run: >-
+          xcodebuild
+          -project TripperPilot.xcodeproj
+          -scheme TripperPilot
+          -configuration Release
+          -sdk iphoneos
+          -derivedDataPath build
+          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_REQUIRED=NO
+          build
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/TripperPilot.app Payload/
+          ditto -c -k --sequesterRsrc --keepParent Payload TripperPilot-unsigned.ipa
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: TripperPilot-unsigned
+          path: TripperPilot-unsigned.ipa
+
