@@ -142,7 +142,10 @@ extension TripperBluetoothController: CBCentralManagerDelegate {
         peripheral.delegate = self
         status = "Conectando"
         log("Encontrado \(name), RSSI \(RSSI)")
-        central.connect(peripheral, options: [CBConnectPeripheralOptionEnableAutoReconnect: true])
+        // Algumas versões do iOS rejeitam EnableAutoReconnect na primeira
+        // conexão com NSError "One or more parameters were invalid".
+        // A reconexão continua sendo feita explicitamente no disconnect.
+        central.connect(peripheral, options: nil)
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
@@ -155,7 +158,7 @@ extension TripperBluetoothController: CBCentralManagerDelegate {
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
         isConnected = false
         status = "Falha ao conectar"
-        log("Falha: \(error?.localizedDescription ?? "desconhecida")")
+        log("Falha: \(errorDescription(error))")
         if isRunning { beginScan() }
     }
 
@@ -163,8 +166,14 @@ extension TripperBluetoothController: CBCentralManagerDelegate {
         isConnected = false
         writableCharacteristic = nil
         status = "Desconectado; aguardando retorno"
-        log("Desconectado: \(error?.localizedDescription ?? "sem erro")")
-        if isRunning { central.connect(peripheral, options: [CBConnectPeripheralOptionEnableAutoReconnect: true]) }
+        log("Desconectado: \(errorDescription(error))")
+        if isRunning { central.connect(peripheral, options: nil) }
+    }
+
+    private func errorDescription(_ error: Error?) -> String {
+        guard let error else { return "sem erro" }
+        let nsError = error as NSError
+        return "\(nsError.localizedDescription) [\(nsError.domain) \(nsError.code)]"
     }
 }
 
@@ -241,4 +250,5 @@ private extension CBManagerState {
 private extension Data {
     var hex: String { map { String(format: "%02X", $0) }.joined(separator: " ") }
 }
+
 
